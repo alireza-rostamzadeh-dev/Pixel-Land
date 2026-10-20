@@ -24,7 +24,14 @@ public class Player_Movement : MonoBehaviour
         flip = GetComponent<Transform>();
         animator = GetComponent<Animator>();
         coll2D = GetComponent<CapsuleCollider2D>();
+
+        GameEvents.GameStart += GameStart;
     }
+
+    void OnDestroy()
+{
+    GameEvents.GameStart -= GameStart;
+}
 
     void Update()
     {
