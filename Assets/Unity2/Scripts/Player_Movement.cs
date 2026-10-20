@@ -1,6 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Runtime.Serialization.Formatters;
+
 using UnityEngine;
 
 public class Player_Movement : MonoBehaviour
@@ -9,11 +7,14 @@ public class Player_Movement : MonoBehaviour
     private Rigidbody2D player;
     private Transform flip;
     private CapsuleCollider2D coll2D;
+
     [SerializeField] private LayerMask[] jumpableGrounds;
+
     private Animator animator;
+
     public PhysicsMaterial2D withFriction;
     public PhysicsMaterial2D withoutFriction;
-    private PlayerItems playerItems;
+
     private bool canDoubleJump;
 
     void Awake()
@@ -23,101 +24,86 @@ public class Player_Movement : MonoBehaviour
         flip = GetComponent<Transform>();
         animator = GetComponent<Animator>();
         coll2D = GetComponent<CapsuleCollider2D>();
-        playerItems = GetComponent<PlayerItems>();
     }
 
-    
     void Update()
     {
         if (Time.timeScale == 0)
             return;
 
         float dirx = Input.GetAxisRaw("Horizontal");
-        player.velocity = new Vector2(dirx * stats.speed, player.velocity.y);
 
+        player.velocity = new Vector2(
+            dirx * stats.speed,
+            player.velocity.y
+        );
+
+        animator.SetBool("running", dirx != 0);
 
         if (dirx == 0)
         {
-            animator.SetBool("running", false);
             player.sharedMaterial = withFriction;
         }
+        else
+        {
+            player.sharedMaterial = withoutFriction;
+        }
 
-        if (dirx > 0f)
+        if (dirx > 0)
         {
             flip.localScale = new Vector3(3.5f, 3.5f, 3.5f);
-            player.sharedMaterial = withoutFriction;
-            animator.SetBool("running", true);
         }
-
-
-        else if (dirx < 0f)
+        else if (dirx < 0)
         {
             flip.localScale = new Vector3(-3.5f, 3.5f, 3.5f);
-            player.sharedMaterial = withoutFriction;
-            animator.SetBool("running", true);
         }
-
 
         if (IsGrounded())
         {
-            canDoubleJump = true; 
+            canDoubleJump = true;
         }
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (IsGrounded()) 
+            if (IsGrounded())
             {
                 Jump();
             }
-            else if (canDoubleJump) 
+            else if (canDoubleJump)
             {
                 Jump();
-                canDoubleJump = false; 
+                canDoubleJump = false;
             }
-           
         }
+    }
 
-        void Jump()
+    void Jump()
     {
-        player.velocity = new Vector2(player.velocity.x, stats.height);
+        player.velocity = new Vector2(
+            player.velocity.x,
+            stats.height
+        );
+
         animator.SetTrigger("jumping");
     }
 
-        // if(Input.GetButtonDown("Jump") && IsGrounded()) {
-        //     player.AddForce(new Vector2(player.velocity.x , stats.height));
-        // }
-
-        if (Input.GetKeyDown(KeyCode.R) && stats.currentHealth < stats.maxHealth)
-        {
-            playerItems.UseHealthPotion();
-        }
-        if (Input.GetKeyDown(KeyCode.Q) && stats.currentMana < stats.maxMana)
-        {
-            playerItems.UseManaPotion();
-        }
-        
-        }
-  bool IsGrounded()
+    bool IsGrounded()
     {
         foreach (LayerMask ground in jumpableGrounds)
         {
-            if (Physics2D.CapsuleCast(coll2D.bounds.center, coll2D.bounds.size, CapsuleDirection2D.Vertical, 0f, Vector2.down, 0.2f, ground))
+            if (Physics2D.CapsuleCast(
+                coll2D.bounds.center,
+                coll2D.bounds.size,
+                CapsuleDirection2D.Vertical,
+                0f,
+                Vector2.down,
+                0.2f,
+                ground))
             {
                 return true;
             }
         }
+
         return false;
     }
-
-
-
-
-
-
-    
-
-    }
-
-    
-
-
+}
