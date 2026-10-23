@@ -1,23 +1,39 @@
+
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class CampfireInteraction : MonoBehaviour
 {
     public GameObject interactionUI;
-    private bool isPlayerInRange;
     public GameObject player;
-    
 
-    void Start()
+    private bool isPlayerInRange;
+    private bool isInteracting;
+    private PlayerStats playerStats;
+    private PlayerItems playerItems;
+    private ScreenFader screenFader;
+
+    private void Awake()
     {
-        interactionUI.SetActive(false);
+        if (player != null)
+        {
+            playerStats = player.GetComponent<PlayerStats>();
+            playerItems = player.GetComponent<PlayerItems>();
+        }
+
+        screenFader = FindObjectOfType<ScreenFader>();
     }
 
-
-    void Update()
+    private void Start()
     {
-        if (isPlayerInRange && Input.GetKeyDown(KeyCode.E))
+        if (interactionUI != null)
+            interactionUI.SetActive(false);
+    }
+
+    private void Update()
+    {
+        if (isPlayerInRange && !isInteracting &&
+            Input.GetKeyDown(KeyCode.E))
         {
             Interact();
         }
@@ -25,42 +41,60 @@ public class CampfireInteraction : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Player"))
+        if (!other.CompareTag("Player"))
+            return;
+
+        isPlayerInRange = true;
+
+        if (player == null)
         {
-            interactionUI.SetActive(true);
-            isPlayerInRange = true;
+            player = other.gameObject;
+            playerStats = player.GetComponent<PlayerStats>();
+            playerItems = player.GetComponent<PlayerItems>();
         }
+
+        if (interactionUI != null)
+            interactionUI.SetActive(true);
     }
 
     private void OnTriggerExit2D(Collider2D other)
     {
+        if (!other.CompareTag("Player"))
+            return;
 
-        if (other.CompareTag("Player"))
-        {
+        isPlayerInRange = false;
+
+        if (interactionUI != null)
             interactionUI.SetActive(false);
-            isPlayerInRange = false;
-        }
     }
 
     private void Interact()
-{
-    PlayerStats stats = player.GetComponent<PlayerStats>();
-    PlayerItems items = player.GetComponent<PlayerItems>();
+    {
+        if (playerStats == null)
+            return;
 
-    
-    
-    StartCoroutine(FindObjectOfType<ScreenFader>().FadeOutIn(2f));
-    
-    stats.currentHealth = stats.maxHealth;
-    stats.currentMana = stats.maxMana;
-    
-    // statsUI.SetHealth(stats.currentHealth);
-    // statsUI.SetMana(stats.currentMana);
-    
-    if (items != null)
-        {
-            items.ResetPotions();
-        }
-}
+        isInteracting = true;
 
+        playerStats.currentHealth = playerStats.maxHealth;
+        GameEvents.HealthChanged(
+            playerStats.currentHealth,
+            playerStats.maxHealth
+        );
+
+        if (playerItems != null)
+            playerItems.ResetPotions();
+
+        GameEvents.OnCampfireActivated.Invoke(gameObject);
+
+        if (screenFader != null)
+            StartCoroutine(PlayCampfireEffect());
+        else
+            isInteracting = false;
+    }
+
+    private IEnumerator PlayCampfireEffect()
+    {
+        yield return StartCoroutine(screenFader.FadeOutIn(2f));
+        isInteracting = false;
+    }
 }

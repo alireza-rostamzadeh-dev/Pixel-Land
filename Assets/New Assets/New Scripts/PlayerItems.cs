@@ -1,14 +1,21 @@
+
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class PlayerItems : MonoBehaviour
 {
+    public const int HealthPotionId = 0;
+    public const int ManaPotionId = 1;
+
     public int maxHealthPotions = 2;
     public int maxManaPotions = 2;
 
-    private int currentHealthPotions;
-    private int currentManaPotions;
+    [SerializeField] private int currentHealthPotions;
+    [SerializeField] private int currentManaPotions;
+
+    public int CurrentHealthPotions => currentHealthPotions;
+    public int CurrentManaPotions => currentManaPotions;
 
     public Image healthPotionImage;
     public Sprite healthPotionFullSprite;
@@ -19,84 +26,140 @@ public class PlayerItems : MonoBehaviour
     public Sprite manaPotionEmptySprite;
 
     private PlayerStats stats;
+
     public StatsBars statsBar;
-    public TextMeshProUGUI healthPotionNum;  
+    public TextMeshProUGUI healthPotionNum;
     public TextMeshProUGUI manaPotionNum;
 
-    void Start()
+    private void Awake()
     {
-        stats = FindObjectOfType<PlayerStats>();
-        statsBar = FindObjectOfType<StatsBars>();
-        currentHealthPotions = maxHealthPotions;
-        currentManaPotions = maxManaPotions;
-        healthPotionNum.text = currentHealthPotions.ToString();
-        manaPotionNum.text = currentManaPotions.ToString();
+        stats = GetComponent<PlayerStats>();
+
+        if (statsBar == null)
+            statsBar = FindObjectOfType<StatsBars>();
+
+        if (currentHealthPotions == 0 && currentManaPotions == 0)
+        {
+            currentHealthPotions = maxHealthPotions;
+            currentManaPotions = maxManaPotions;
+        }
+
+        ClampPotionCounts();
         UpdatePotionUI();
-        
     }
 
-
-
-public void UseHealthPotion()
-{
-    if (currentHealthPotions > 0)
+    public void UseHealthPotion()
     {
+        if (stats == null)
+            return;
+
+        if (currentHealthPotions <= 0)
+            return;
+
+        if (stats.currentHealth >= stats.maxHealth)
+            return;
+
         currentHealthPotions--;
-        stats.currentHealth += 250f;
-        statsBar.SetHealth(stats.currentHealth);
-        
-        
-            if (stats.currentHealth > stats.maxHealth)
-                stats.currentHealth = stats.maxHealth;
+
+        stats.currentHealth = Mathf.Min(
+            stats.currentHealth + 250f,
+            stats.maxHealth
+        );
+
+        GameEvents.HealthChanged(
+            stats.currentHealth,
+            stats.maxHealth
+        );
+
+        GameEvents.OnPotionUsed.Invoke(HealthPotionId);
+        GameEvents.OnItemCountChanged.Invoke(currentHealthPotions);
 
         UpdatePotionUI();
-
-        
-        
     }
-}
 
-
-
-public void UseManaPotion()
-{
-    if (currentManaPotions > 0)
+    public void UseManaPotion()
     {
+        if (stats == null)
+            return;
+
+        if (currentManaPotions <= 0)
+            return;
+
+        if (stats.currentMana >= stats.maxMana)
+            return;
+
         currentManaPotions--;
-        stats.currentMana += 100f;
-        statsBar.SetMana(stats.currentMana);
-        
-        if (stats.currentMana > stats.maxMana)
-                stats.currentMana = stats.maxMana;
+
+        stats.currentMana = Mathf.Min(
+            stats.currentMana + 100f,
+            stats.maxMana
+        );
+
+        GameEvents.OnPotionUsed.Invoke(ManaPotionId);
+        GameEvents.OnItemCountChanged.Invoke(currentManaPotions);
 
         UpdatePotionUI();
-        
     }
-}
-
-
 
     public void ResetPotions()
     {
         currentHealthPotions = maxHealthPotions;
         currentManaPotions = maxManaPotions;
+
+        ClampPotionCounts();
         UpdatePotionUI();
+
+        GameEvents.OnItemCountChanged.Invoke(currentHealthPotions);
+        GameEvents.OnItemCountChanged.Invoke(currentManaPotions);
+    }
+
+    public void SetPotionCounts(int health, int mana)
+    {
+        currentHealthPotions = health;
+        currentManaPotions = mana;
+
+        ClampPotionCounts();
+        UpdatePotionUI();
+
+        GameEvents.OnItemCountChanged.Invoke(currentHealthPotions);
+        GameEvents.OnItemCountChanged.Invoke(currentManaPotions);
+    }
+
+    private void ClampPotionCounts()
+    {
+        currentHealthPotions = Mathf.Clamp(
+            currentHealthPotions,
+            0,
+            maxHealthPotions
+        );
+
+        currentManaPotions = Mathf.Clamp(
+            currentManaPotions,
+            0,
+            maxManaPotions
+        );
     }
 
     private void UpdatePotionUI()
     {
-        manaPotionNum.text = currentManaPotions.ToString();
-        healthPotionNum.text = currentHealthPotions.ToString();
+        if (healthPotionNum != null)
+            healthPotionNum.text = currentHealthPotions.ToString();
 
-        if (currentHealthPotions > 0)
-            healthPotionImage.sprite = healthPotionFullSprite;
-        else
-            healthPotionImage.sprite = healthPotionEmptySprite;
+        if (manaPotionNum != null)
+            manaPotionNum.text = currentManaPotions.ToString();
 
-        
-        if (currentManaPotions > 0)
-            manaPotionImage.sprite = manaPotionFullSprite;
-        else
-            manaPotionImage.sprite = manaPotionEmptySprite;
+        if (healthPotionImage != null)
+        {
+            healthPotionImage.sprite = currentHealthPotions > 0
+                ? healthPotionFullSprite
+                : healthPotionEmptySprite;
+        }
+
+        if (manaPotionImage != null)
+        {
+            manaPotionImage.sprite = currentManaPotions > 0
+                ? manaPotionFullSprite
+                : manaPotionEmptySprite;
+        }
     }
 }

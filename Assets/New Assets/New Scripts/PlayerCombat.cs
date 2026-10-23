@@ -1,3 +1,5 @@
+
+using System.Collections;
 using UnityEngine;
 
 public class PlayerCombat : MonoBehaviour
@@ -8,51 +10,111 @@ public class PlayerCombat : MonoBehaviour
     public LayerMask enemyLayers;
     public int attackDamage = 25;
     public float attackRate = 2f;
+    public float knockbackForce = 8f;
 
-    private float nextAttackTime = 0f;
+    [Header("Attack Movement Lock")]
+    [SerializeField] private float attackLockDuration = 0.5f;
 
     [Header("Sound Effects")]
-    public AudioClip swordSound;   
-    private AudioSource audioSource;
+    public AudioClip swordSound;
 
-    void Start()
+    private float nextAttackTime;
+    private AudioSource audioSource;
+    private PlayerMovement playerMovement;
+    private bool isAttacking;
+    private Coroutine attackCoroutine;
+
+    private void Awake()
     {
+        playerMovement = GetComponent<PlayerMovement>();
         audioSource = GetComponent<AudioSource>();
+
+        if (animator == null)
+            animator = GetComponent<Animator>();
     }
 
-    void Update()
+    private void Update()
     {
-        if (Time.time >= nextAttackTime)
+        if (Time.timeScale == 0f || isAttacking || Time.time < nextAttackTime)
+            return;
+
+        if (Input.GetMouseButtonDown(0))
         {
-            if (Input.GetMouseButtonDown(0))
-            {
-                Attack();
-                nextAttackTime = Time.time + 1f / attackRate;
-            }
+            Attack();
+            nextAttackTime = Time.time + 1f / Mathf.Max(attackRate, 0.01f);
         }
     }
 
-    void Attack()
+    private void Attack()
     {
-        animator.SetTrigger("Attack");
+        isAttacking = true;
 
-        
-        if (swordSound != null)
+        if (playerMovement != null)
+            playerMovement.SetAttacking(true);
+
+        if (animator != null)
+            animator.SetTrigger("Attack");
+
+        if (swordSound != null && audioSource != null)
             audioSource.PlayOneShot(swordSound);
 
-        Collider2D[] hitEnemies = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, enemyLayers);
+        attackCoroutine = StartCoroutine(AttackLockRoutine());
+
+        if (attackPoint == null)
+            return;
+
+        Collider2D[] hitEnemies = Physics2D.OverlapCircleAll(
+            attackPoint.position,
+            attackRange,
+            enemyLayers
+        );
 
         foreach (Collider2D enemy in hitEnemies)
         {
-            EnemyStats enemyStats = enemy.GetComponent<EnemyStats>();
-            if (enemyStats != null)
+            EnemyStats enemyStats = enemy.GetComponentInParent<EnemyStats>();
+
+            if (enemyStats == null || enemyStats.isDead)
+                continue;
+
+            enemyStats.TakeDamage(attackDamage);
+
+            if (!enemyStats.isDead)
             {
-                enemyStats.TakeDamage(attackDamage);
+                GameEvents.RequestKnockback(
+                    enemyStats.gameObject,
+                    transform.position,
+                    knockbackForce
+                );
             }
         }
     }
 
-    void OnDrawGizmosSelected()
+    private IEnumerator AttackLockRoutine()
+    {
+        yield return new WaitForSeconds(attackLockDuration);
+
+        if (playerMovement != null)
+            playerMovement.SetAttacking(false);
+
+        isAttacking = false;
+        attackCoroutine = null;
+    }
+
+    private void OnDisable()
+    {
+        if (attackCoroutine != null)
+        {
+            StopCoroutine(attackCoroutine);
+            attackCoroutine = null;
+        }
+
+        isAttacking = false;
+
+        if (playerMovement != null)
+            playerMovement.SetAttacking(false);
+    }
+
+    private void OnDrawGizmosSelected()
     {
         if (attackPoint == null)
             return;

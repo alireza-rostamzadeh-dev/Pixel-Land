@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 4781859068009413210}
   - component: {fileID: 4781859068009413211}
   - component: {fileID: 8151105715888241574}
+  - component: {fileID: -1570073909818308894}
   m_Layer: 8
   m_Name: Gate Keeper
   m_TagString: Untagged
@@ -165,6 +166,8 @@ MonoBehaviour:
   playerLayer:
     serializedVersion: 2
     m_Bits: 128
+  stopDistance: 1
+  knockbackRecoveryTime: 0.5
   attackRange: 1.5
   attackCooldown: 1.5
   attackDamage: 60
@@ -300,3 +303,17 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &-1570073909818308894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4781859068009413218}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 380da11e681bcad4f9a2c64bcf98d4dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  knockbackForce: 1
+  knockbackDuration: 0.2

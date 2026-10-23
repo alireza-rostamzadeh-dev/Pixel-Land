@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerStats : MonoBehaviour
@@ -12,15 +10,12 @@ public class PlayerStats : MonoBehaviour
     public float maxMana = 100f;
     public float currentMana;
 
-
-
-
-    void Start()
+    private void Awake()
     {
-        currentHealth = maxHealth;
-        currentMana = maxMana;
+        if (currentHealth <= 0f)
+            currentHealth = maxHealth;
+
+        if (currentMana <= 0f)
+            currentMana = maxMana;
     }
-
-  
-
 }

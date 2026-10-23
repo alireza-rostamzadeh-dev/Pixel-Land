@@ -1,3 +1,4 @@
+
 using System.Collections;
 using UnityEngine;
 
@@ -6,85 +7,122 @@ public class Damage : MonoBehaviour
     private PlayerStats stats;
     private Animator animator;
     private Rigidbody2D rb;
-    public float TrapDamage = 50;
+    private PlayerMovement playerMovement;
+    private PlayerCombat playerCombat;
+    private CapsuleCollider2D playerCollider;
+    private bool isDead;
 
-    private bool isDead = false;
+    public float TrapDamage = 50f;
     public StatsBars statsBar;
-
-    [Header("Game Over Settings")]
     public GameObject gameOverPanel;
     public AudioSource gameOverMusic;
-
     public SpriteRenderer spriteRenderer;
     public Color originalColor;
-    public bool isFlashing = false;
+    public bool isFlashing;
     public GameObject bloodParticle;
 
-    void Start()
+    private void Awake()
     {
-        stats = FindObjectOfType<PlayerStats>();
+        stats = GetComponent<PlayerStats>();
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
-        statsBar = FindObjectOfType<StatsBars>();
-
-        statsBar.SetMaxHealth(stats.maxHealth);
+        playerMovement = GetComponent<PlayerMovement>();
+        playerCombat = GetComponent<PlayerCombat>();
+        playerCollider = GetComponent<CapsuleCollider2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
-        originalColor = spriteRenderer.color;
+
+        if (statsBar == null)
+            statsBar = FindObjectOfType<StatsBars>();
+
+        if (spriteRenderer != null)
+            originalColor = spriteRenderer.color;
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
     }
 
-    void Update()
+    private void Start()
     {
+        if (stats != null)
+            GameEvents.HealthChanged(stats.currentHealth, stats.maxHealth);
+    }
 
-        if (!isDead && stats.currentHealth <= 0)
-        {
+    private void Update()
+    {
+        if (!isDead && stats != null && stats.currentHealth <= 0f)
             Die();
-        }
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Trap"))
-        {
-            Debug.Log("Hit the Trap!");
-            Die();
-        }
+            TakeDamage(TrapDamage);
     }
 
     public void TakeDamage(float damage)
     {
-        if (isDead) return;
+        if (isDead || stats == null || damage <= 0f)
+            return;
 
-        stats.currentHealth -= damage;
-        stats.currentHealth = Mathf.Max(stats.currentHealth, 0);
-        bloodParticle = Instantiate(bloodParticle, transform.position, transform.rotation, transform);
+        stats.currentHealth = Mathf.Max(
+            0f,
+            stats.currentHealth - damage
+        );
 
-        statsBar.SetHealth(stats.currentHealth);
-        StartCoroutine(FlashWhite());
-        animator.SetTrigger("hurt");
+        GameEvents.HealthChanged(stats.currentHealth, stats.maxHealth);
+        GameEvents.OnPlayerDamaged.Invoke(damage);
+
+        if (bloodParticle != null)
+            Instantiate(bloodParticle, transform.position, transform.rotation);
+
+        if (stats.currentHealth <= 0f)
+        {
+            Die();
+            return;
+        }
+
+        if (animator != null)
+            animator.SetTrigger("hurt");
+
+        if (spriteRenderer != null)
+            StartCoroutine(FlashWhite());
     }
 
     private void Die()
     {
-        if (isDead) return;
+        if (isDead)
+            return;
+
         isDead = true;
 
-        stats.currentHealth = 0f;
-        statsBar.SetHealth(stats.currentHealth);
+        if (stats != null)
+        {
+            stats.currentHealth = 0f;
+            GameEvents.HealthChanged(stats.currentHealth, stats.maxHealth);
+        }
 
-        animator.ResetTrigger("hurt");
-        animator.SetTrigger("death");
+        GameEvents.OnPlayerDied.Invoke();
+        GameEvents.OnGameOver.Invoke();
 
-        rb.velocity = Vector2.zero;
-        GetComponent<PlayerMovement>().enabled = false;
-        GetComponent<CapsuleCollider2D>().enabled = false;
-        GetComponent<PlayerCombat>().enabled = false;
+        if (animator != null)
+        {
+            animator.ResetTrigger("hurt");
+            animator.SetTrigger("death");
+        }
 
+        if (rb != null)
+            rb.velocity = Vector2.zero;
+
+        if (playerMovement != null)
+            playerMovement.enabled = false;
+
+        if (playerCollider != null)
+            playerCollider.enabled = false;
+
+        if (playerCombat != null)
+            playerCombat.enabled = false;
 
         AudioListener.pause = true;
-
 
         if (gameOverPanel != null)
             gameOverPanel.SetActive(true);
@@ -96,17 +134,19 @@ public class Damage : MonoBehaviour
         }
     }
 
-  public IEnumerator FlashWhite()
-{
-    if (isFlashing) yield break;
+    public IEnumerator FlashWhite()
+    {
+        if (isFlashing || spriteRenderer == null)
+            yield break;
 
-    isFlashing = true;
-    spriteRenderer.color = new Color32(0x87, 0x87, 0x87, 0xFF);
-    yield return new WaitForSeconds(0.3f);
-    spriteRenderer.color = originalColor;
-    isFlashing = false;
-}
+        isFlashing = true;
+        spriteRenderer.color = new Color32(135, 135, 135, 255);
 
+        yield return new WaitForSeconds(0.3f);
 
+        if (spriteRenderer != null)
+            spriteRenderer.color = originalColor;
 
+        isFlashing = false;
+    }
 }

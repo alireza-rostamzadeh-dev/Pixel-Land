@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 public class EnemyChase : MonoBehaviour
@@ -6,143 +7,250 @@ public class EnemyChase : MonoBehaviour
     public float speed = 3f;
     public float detectionRadius = 5f;
     public LayerMask playerLayer;
+    public float stopDistance = 0.8f;
+    public float knockbackRecoveryTime = 0.2f;
 
     [Header("Attack")]
     public float attackRange = 1f;
     public float attackCooldown = 1.5f;
     public int attackDamage = 20;
+    public float knockbackForce = 8f;
 
     [Header("SFX")]
-    public AudioClip swordClip;   
-    private AudioSource audioSource;
+    public AudioClip swordClip;
 
+    private AudioSource audioSource;
     private Rigidbody2D rb;
     private Transform player;
     private Animator animator;
-
-    private bool isChasing = false;
-    private float lastAttackTime = 0f;
-
-    private PlayerStats playerStats; 
-    private Damage PlayerDamage;
+    private PlayerStats playerStats;
+    private Damage playerDamage;
     private EnemyStats enemyStats;
 
-    void Start()
+    private bool isChasing;
+    private float lastAttackTime = -Mathf.Infinity;
+    private float knockbackEndTime;
+
+    private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
-        PlayerDamage = FindObjectOfType<Damage>();
-        enemyStats = gameObject.GetComponent<EnemyStats>();
-        // گرفتن یا ساختن AudioSource
+        enemyStats = GetComponent<EnemyStats>();
         audioSource = GetComponent<AudioSource>();
+
         if (audioSource == null)
             audioSource = gameObject.AddComponent<AudioSource>();
     }
 
-    void Update()
+    private void OnEnable()
     {
-        if (enemyStats.isDead) return;
-        Collider2D hit = Physics2D.OverlapCircle(transform.position, detectionRadius, playerLayer);
+        GameEvents.OnKnockbackRequested += OnKnockbackRequested;
+    }
 
-        if (hit != null)
+    private void OnDisable()
+    {
+        GameEvents.OnKnockbackRequested -= OnKnockbackRequested;
+    }
+
+    private void OnKnockbackRequested(
+        GameObject target,
+        Vector2 attackerPosition,
+        float force)
+    {
+        if (target != gameObject)
+            return;
+
+        knockbackEndTime = Time.time + knockbackRecoveryTime;
+    }
+
+    private void Update()
+    {
+        if (enemyStats != null && enemyStats.isDead)
         {
-            player = hit.transform;
-            playerStats = player.GetComponent<PlayerStats>(); 
+            StopChasing();
+            return;
+        }
 
-            
-            if (IsPlayerDead())
-            {
-                isChasing = false;
+        Collider2D hit = Physics2D.OverlapCircle(
+            transform.position,
+            detectionRadius,
+            playerLayer
+        );
+
+        if (hit == null)
+        {
+            StopChasing();
+            return;
+        }
+
+        PlayerStats targetStats =
+            hit.GetComponentInParent<PlayerStats>();
+
+        if (targetStats == null || targetStats.currentHealth <= 0f)
+        {
+            StopChasing();
+            return;
+        }
+
+        playerStats = targetStats;
+        player = targetStats.transform;
+        playerDamage = targetStats.GetComponent<Damage>();
+        isChasing = true;
+
+        float distance = Vector2.Distance(
+            transform.position,
+            player.position
+        );
+
+        if (distance <= attackRange &&
+            Time.time - lastAttackTime >= attackCooldown)
+        {
+            lastAttackTime = Time.time;
+            Attack();
+        }
+
+        if (animator != null)
+        {
+            animator.SetBool(
+                "Running",
+                isChasing &&
+                distance > stopDistance &&
+                Time.time >= knockbackEndTime
+            );
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (rb == null)
+            return;
+
+        if (enemyStats != null && enemyStats.isDead)
+        {
+            rb.velocity = new Vector2(0f, rb.velocity.y);
+            return;
+        }
+
+        if (Time.time < knockbackEndTime)
+            return;
+
+        if (IsAttacking() ||
+            !isChasing ||
+            player == null ||
+            IsPlayerDead())
+        {
+            rb.velocity = new Vector2(0f, rb.velocity.y);
+            return;
+        }
+
+        float directionX = player.position.x - transform.position.x;
+
+        if (Mathf.Abs(directionX) <= stopDistance)
+        {
+            rb.velocity = new Vector2(0f, rb.velocity.y);
+
+            if (animator != null)
                 animator.SetBool("Running", false);
-                return;
-            }
 
-            isChasing = true;
-
-            float distanceToPlayer = Vector2.Distance(transform.position, player.position);
-            if (distanceToPlayer <= attackRange && Time.time - lastAttackTime > attackCooldown)
-            {
-                Attack();
-                lastAttackTime = Time.time;
-            }
+            return;
         }
-        else
+
+        rb.velocity = new Vector2(
+            Mathf.Sign(directionX) * speed,
+            rb.velocity.y
+        );
+
+        if (animator != null)
+            animator.SetBool("Running", true);
+
+        if (Mathf.Abs(directionX) > 0.01f)
         {
-            isChasing = false;
-            player = null;
-            playerStats = null;
+            transform.localScale = directionX > 0f
+                ? new Vector3(4.5f, 4.5f, 4.5f)
+                : new Vector3(-4.5f, 4.5f, 4.5f);
         }
-
-        animator.SetBool("Running", isChasing);
     }
 
-    void FixedUpdate()
+    private void Attack()
     {
-        
         if (IsPlayerDead())
-        {
-            rb.velocity = new Vector2(0, rb.velocity.y);
             return;
-        }
 
-        
-        if (animator.GetCurrentAnimatorStateInfo(0).IsName("Attack_Gate_Keeper"))
+        if (animator != null)
         {
-            rb.velocity = new Vector2(0, rb.velocity.y);
-            return;
+            animator.SetBool("Running", false);
+            animator.SetTrigger("Attack");
         }
 
-        if (isChasing && player != null)
-        {
-            Vector2 direction = (player.position - transform.position).normalized;
-
-            rb.velocity = new Vector2(direction.x * speed, rb.velocity.y);
-
-            
-            if (direction.x > 0)
-                transform.localScale = new Vector3(4.5f, 4.5f, 4.5f);
-            else if (direction.x < 0)
-                transform.localScale = new Vector3(-4.5f, 4.5f, 4.5f);
-        }
-        else
-        {
-            rb.velocity = new Vector2(0, rb.velocity.y);
-        }
-    }
-
-    void Attack()
-    {
-        if (IsPlayerDead()) return;
-
-        animator.SetTrigger("Attack");
-
-        
         if (swordClip != null && audioSource != null)
             audioSource.PlayOneShot(swordClip);
 
-        
-        if (playerStats != null)
+        float previousHealth = playerStats.currentHealth;
+
+        if (playerDamage != null)
         {
-            PlayerDamage.TakeDamage(attackDamage);
-            
-            playerStats.currentHealth = Mathf.Max(playerStats.currentHealth, 0);
+            playerDamage.TakeDamage(attackDamage);
+        }
+        else
+        {
+            playerStats.currentHealth = Mathf.Max(
+                0f,
+                playerStats.currentHealth - attackDamage
+            );
 
-            var bars = FindObjectOfType<StatsBars>();
-            if (bars != null) bars.SetHealth(playerStats.currentHealth);
+            GameEvents.HealthChanged(
+                playerStats.currentHealth,
+                playerStats.maxHealth
+            );
+        }
 
-            Debug.Log("Player damaged: " + attackDamage);
+        bool damageApplied =
+            playerStats.currentHealth < previousHealth;
+
+        if (damageApplied)
+        {
+            GameEvents.RequestKnockback(
+                playerStats.gameObject,
+                transform.position,
+                knockbackForce
+            );
         }
     }
 
-    bool IsPlayerDead()
+    private bool IsPlayerDead()
     {
-        return (playerStats == null) || (playerStats.currentHealth <= 0);
+        return playerStats == null ||
+               playerStats.currentHealth <= 0f;
     }
 
-    void OnDrawGizmosSelected()
+    private bool IsAttacking()
+    {
+        if (animator == null)
+            return false;
+
+        AnimatorStateInfo state =
+            animator.GetCurrentAnimatorStateInfo(0);
+
+        return state.IsName("Attack_Gate_Keeper") &&
+               state.normalizedTime < 1f;
+    }
+
+    private void StopChasing()
+    {
+        isChasing = false;
+        player = null;
+        playerStats = null;
+        playerDamage = null;
+
+        if (animator != null)
+            animator.SetBool("Running", false);
+    }
+
+    private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, detectionRadius);
+
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, attackRange);
     }

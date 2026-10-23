@@ -1,43 +1,64 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
 using UnityEngine.UI;
 
 public class StatsBars : MonoBehaviour
 {
-    public Slider health_slider;
-    public Slider mana_slider;
+    [SerializeField] private Slider health_slider;
 
-    void Start()
-{
-    if (mana_slider == null)
-        Debug.LogError("Mana Slider is not assigned in the inspector!");
-}
+    private void OnEnable()
+    {
+        GameEvents.OnHealthChanged -= UpdateHealth;
+        GameEvents.OnHealthChanged += UpdateHealth;
+    }
 
+    private void OnDisable()
+    {
+        GameEvents.OnHealthChanged -= UpdateHealth;
+    }
+
+    private void Start()
+    {
+        if (health_slider == null)
+        {
+            Debug.LogError("Health Slider is not assigned in the Inspector!", this);
+            return;
+        }
+
+        PlayerStats stats = FindObjectOfType<PlayerStats>();
+
+        if (stats != null)
+            SetHealth(stats.currentHealth, stats.maxHealth);
+    }
 
     public void SetMaxHealth(float health)
     {
+        if (health_slider == null)
+            return;
 
         health_slider.maxValue = health;
-        health_slider.value = health;
     }
 
     public void SetHealth(float health)
     {
+        if (health_slider == null)
+            return;
 
-        health_slider.value = health;
+        health_slider.value = Mathf.Clamp(
+            health,
+            health_slider.minValue,
+            health_slider.maxValue
+        );
     }
 
-    public void SetMaxMana(float mana)
+    public void SetHealth(float currentHealth, float maxHealth)
     {
-
-        mana_slider.maxValue = mana;
-        mana_slider.value = mana;
+        SetMaxHealth(maxHealth);
+        SetHealth(currentHealth);
     }
-    public void SetMana(float mana)
+
+    private void UpdateHealth(float currentHealth, float maxHealth)
     {
-
-        mana_slider.value = mana;
+        SetHealth(currentHealth, maxHealth);
     }
-    
 }

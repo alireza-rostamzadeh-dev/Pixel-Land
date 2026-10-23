@@ -1,30 +1,45 @@
+
+using System.Collections;
 using UnityEngine;
 
 public class EnemyHealth : MonoBehaviour
 {
     public float maxHealth = 100f;
-    private float currentHealth;
+
+    [SerializeField] private float currentHealth;
     public Animator animator;
 
-    void Start()
+    private bool isDead;
+
+    private void Awake()
     {
         currentHealth = maxHealth;
+
+        if (animator == null)
+            animator = GetComponent<Animator>();
     }
 
     public void TakeDamage(float amount)
     {
-        currentHealth -= amount;
+        if (isDead || amount <= 0f)
+            return;
 
-        if (currentHealth <= 0)
+        currentHealth = Mathf.Max(0f, currentHealth - amount);
+
+        if (currentHealth <= 0f)
         {
-            animator.SetTrigger("Death");
-            // Invoke("Die", 2f);
+            isDead = true;
+
+            if (animator != null)
+                animator.SetTrigger("Death");
+
+            StartCoroutine(Die());
         }
     }
 
-    // void Die()
-    // {
-        
-    //     Destroy(gameObject);
-    // }
+    private IEnumerator Die()
+    {
+        yield return new WaitForSeconds(2f);
+        Destroy(gameObject);
+    }
 }

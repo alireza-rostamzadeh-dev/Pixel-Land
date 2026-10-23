@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 public class CoinSound : MonoBehaviour
@@ -6,14 +7,17 @@ public class CoinSound : MonoBehaviour
 
     private AudioSource audioSource;
 
-    void Awake()
+    private void Awake()
     {
         audioSource = GetComponent<AudioSource>();
+
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
     }
 
     public void PlaySound()
     {
-        if (coinClip != null)
+        if (coinClip != null && audioSource != null)
             audioSource.PlayOneShot(coinClip);
     }
 }

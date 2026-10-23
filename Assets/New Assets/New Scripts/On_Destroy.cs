@@ -1,5 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
 
 public class On_Destroy : MonoBehaviour
@@ -14,7 +13,5 @@ public class On_Destroy : MonoBehaviour
 
         if (wall_2 != null)
             wall_2.SetActive(false);
-
-        Debug.Log("Walls deactivated because object was destroyed");
     }
 }

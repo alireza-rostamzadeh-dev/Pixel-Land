@@ -1,27 +1,49 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
-using UnityEngine.Audio;
 
 public class AudioManager : MonoBehaviour
 {
-   [SerializeField] AudioSource musicSource;
-   [SerializeField] AudioSource SFXSound;
+    [SerializeField] private AudioSource musicSource;
+    [SerializeField] private AudioSource SFXSound;
 
     public AudioClip background;
     public AudioClip walking;
     public AudioClip death;
 
+    private void Awake()
+    {
+        AudioSource[] sources = GetComponents<AudioSource>();
 
-    void Start(){
-        musicSource.clip = background;
-        musicSource.Play();
-    } 
+        if (musicSource == null && sources.Length > 0)
+            musicSource = sources[0];
 
-
-    public void PlaySFX(AudioClip clip){
-
-        SFXSound.PlayOneShot(clip);
+        if (SFXSound == null && sources.Length > 1)
+            SFXSound = sources[1];
     }
 
+    private void Start()
+    {
+        if (musicSource != null && background != null)
+        {
+            musicSource.clip = background;
+            musicSource.loop = true;
+            musicSource.Play();
+        }
+    }
+
+    public void PlaySFX(AudioClip clip)
+    {
+        if (SFXSound != null && clip != null)
+            SFXSound.PlayOneShot(clip);
+    }
+
+    public void PlayDeathSound()
+    {
+        PlaySFX(death);
+    }
+
+    public void PlayWalkingSound()
+    {
+        PlaySFX(walking);
+    }
 }

@@ -1,32 +1,52 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
-
-public class ItemCollect : MonoBehaviour
+public class ItemCollect : SaveComponent
 {
-private int Gold;
-[SerializeField] private TextMeshProUGUI Gold_Text;
+    [SerializeField] private int gold;
+    [SerializeField] private TextMeshProUGUI Gold_Text;
 
-   void OnTriggerEnter2D(Collider2D collision)
-{
-    if (collision.gameObject.CompareTag("Coin"))
+    public int Gold => gold;
+
+    private void Start()
     {
-        
-        CoinSound cs = collision.GetComponent<CoinSound>();
-        if (cs != null)
-            cs.PlaySound(); 
-
-        
-        Destroy(collision.gameObject, 0.2f);
-
-        Gold += 50;
-        Gold_Text.text = "" + Gold;
+        UpdateGoldUI();
     }
-}
 
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (!collision.CompareTag("Coin"))
+            return;
 
+        CoinSound sound = collision.GetComponent<CoinSound>();
 
+        if (sound != null)
+            sound.PlaySound();
+
+        gold += 50;
+
+        GameEvents.OnCoinsCollected.Invoke(50);
+
+        UpdateGoldUI();
+
+        Destroy(collision.gameObject, 0.2f);
+    }
+
+    public override void Save(GameState state)
+    {
+        state.gold = gold;
+    }
+
+    public override void Load(GameState state)
+    {
+        gold = state.gold;
+        UpdateGoldUI();
+    }
+
+    private void UpdateGoldUI()
+    {
+        if (Gold_Text != null)
+            Gold_Text.text = gold.ToString();
+    }
 }

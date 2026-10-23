@@ -1,35 +1,64 @@
+
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
 
 public class ScreenFader : MonoBehaviour
 {
     public Image fadeImage;
 
+    private bool isFading;
+
     public IEnumerator FadeOutIn(float duration)
     {
-        Time.timeScale = 0f; 
+        if (isFading || fadeImage == null)
+            yield break;
 
-        yield return StartCoroutine(Fade(0f, 1f, duration / 2));
+        isFading = true;
 
-        yield return new WaitForSecondsRealtime(0.2f); 
+        float previousTimeScale = Time.timeScale;
+        Time.timeScale = 0f;
 
-        yield return StartCoroutine(Fade(1f, 0f, duration / 2));
+        duration = Mathf.Max(0f, duration);
 
-        Time.timeScale = 1f; 
+        yield return StartCoroutine(Fade(0f, 1f, duration / 2f));
+
+        yield return new WaitForSecondsRealtime(0.2f);
+
+        yield return StartCoroutine(Fade(1f, 0f, duration / 2f));
+
+        Time.timeScale = previousTimeScale;
+        isFading = false;
     }
 
     private IEnumerator Fade(float startAlpha, float endAlpha, float duration)
     {
+        Color color = fadeImage.color;
+
+        if (duration <= 0f)
+        {
+            color.a = endAlpha;
+            fadeImage.color = color;
+            yield break;
+        }
+
         float elapsed = 0f;
-        Color c = fadeImage.color;
 
         while (elapsed < duration)
         {
-            elapsed += Time.unscaledDeltaTime;  
-            c.a = Mathf.Lerp(startAlpha, endAlpha, elapsed / duration);
-            fadeImage.color = c;
+            elapsed += Time.unscaledDeltaTime;
+
+            color.a = Mathf.Lerp(
+                startAlpha,
+                endAlpha,
+                Mathf.Clamp01(elapsed / duration)
+            );
+
+            fadeImage.color = color;
             yield return null;
         }
+
+        color.a = endAlpha;
+        fadeImage.color = color;
     }
 }
